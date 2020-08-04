@@ -1,0 +1,127 @@
+import React, { useEffect, useCallback, useState, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { getSelectedMetrics } from '../Metrics/selectors';
+import { useSelector, useDispatch } from 'react-redux';
+import { useQuery, } from 'urql';
+import { actions, IMeasurementState } from '../Subscription/reducer';
+import { getMeasurements } from '../Filters/selectors';
+import { getChartData, IChartData } from './getChartData';
+import { Paper } from '@material-ui/core';
+import useStyles from './useStyles';
+import { getTicks } from './getTicks';
+import { getUnits } from './getUnits';
+import { tickFormatter } from './tickFormatter';
+
+const query = `
+query($input: [MeasurementQuery]) {
+  getMultipleMeasurements(input: $input) {
+    metric
+    measurements {
+      at
+      value
+      metric
+      unit
+    }
+  }
+}
+`;
+
+const timeAgo = () => new Date().getTime() - 34 * 60 * 1000;
+
+const colors = [
+  '#238AE6',
+  '#69DB7C',
+  '#FCC41A',
+  '#FA5351',
+  '#7950F2',
+  '#B47E51',
+  '#495058',
+];
+
+const Charting = () => {
+  const metrics = useSelector(getSelectedMetrics);
+  const measurements = useSelector(getMeasurements);
+  const [fetch, setFetch] = useState(false);
+  const startTime = timeAgo();
+  const dispatch = useDispatch();
+  const classes = useStyles();
+  const [result] = useQuery({
+    query,
+    variables: {
+      input: metrics.map(metric => ({
+        metricName: metric.title,
+        after: startTime
+      }))
+    },
+    pause: fetch
+  });
+  const { fetching, data, error } = result;
+
+  const multipleMeasurementsCallback = useCallback(() => {
+    if (!data) return;
+    const { getMultipleMeasurements } = data;
+    dispatch(actions.multipleMeasurementRecieved(getMultipleMeasurements));
+  }, [data]);
+
+  useEffect(() => {
+    setFetch(true);
+  }, [JSON.stringify(metrics)]);
+  useEffect(() => {
+    setFetch(false);
+    multipleMeasurementsCallback();
+  }, [fetching, data, error]);
+
+
+  const chartData: IChartData[] = getChartData(measurements, metrics.map(m => m.title));
+
+  if (!chartData.length) return null;
+
+  const firstTick = +chartData[0].name;
+  const lastTick = +chartData[chartData.length - 1].name;
+  const ticks = getTicks(firstTick, lastTick);
+  const units = getUnits(measurements);
+
+  return (
+    chartData.length
+      ? (
+        <Paper className={classes.wrapper}>
+          <ResponsiveContainer height={500} >
+            <LineChart
+              data={chartData}
+              margin={{
+                top: 5, right: 30, left: 20, bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="name"
+                scale="time"
+                ticks={ticks}
+                type="number"
+                interval="preserveStartEnd"
+                tickFormatter={tick => tickFormatter(+tick)}
+                domain={[firstTick, lastTick]}
+              />
+              {metrics.map((m, i) => <YAxis unit={units[m.title]} yAxisId={`left${i + 1}`} orientation="left" />)}
+              <Tooltip labelFormatter={(label) => <span>{new Date(+label).toString()}</span>} />
+              <Legend />
+              {
+                metrics.map((m, i) => {
+                  return <Line
+                    unit={units[m.title]}
+                    yAxisId={`left${i + 1}`}
+                    dataKey={m.title}
+                    stroke={colors[i]}
+                    activeDot={{ r: 8 }}
+                  />
+                })
+              }
+            </LineChart>
+          </ResponsiveContainer>
+        </Paper>
+      )
+      : null
+  )
+}
+
+export default React.memo(Charting);
