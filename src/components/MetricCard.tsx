@@ -1,6 +1,5 @@
 import React from "react";
 import { Card, makeStyles, CircularProgress } from "@material-ui/core";
-import { Metric } from "../types";
 
 const useStyles = makeStyles({
   root: {

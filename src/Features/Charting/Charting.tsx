@@ -1,9 +1,9 @@
-import React, { useEffect, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getSelectedMetrics } from '../Metrics/selectors';
 import { useSelector, useDispatch } from 'react-redux';
 import { useQuery, } from 'urql';
-import { actions, IMeasurementState } from '../Subscription/reducer';
+import { actions } from '../Subscription/reducer';
 import { getMeasurements } from '../Filters/selectors';
 import { getChartData, IChartData } from './getChartData';
 import { Paper } from '@material-ui/core';
@@ -39,38 +39,39 @@ const colors = [
 ];
 
 const Charting = () => {
+  const dispatch = useDispatch();
   const metrics = useSelector(getSelectedMetrics);
   const measurements = useSelector(getMeasurements);
-  const [fetch, setFetch] = useState(false);
   const startTime = timeAgo();
-  const dispatch = useDispatch();
   const classes = useStyles();
-  const [result] = useQuery({
+
+  const [result, executeQuery] = useQuery({
     query,
+    pause: true,
     variables: {
       input: metrics.map(metric => ({
         metricName: metric.title,
         after: startTime
       }))
     },
-    pause: fetch
   });
-  const { fetching, data, error } = result;
 
-  const multipleMeasurementsCallback = useCallback(() => {
-    if (!data) return;
-    const { getMultipleMeasurements } = data;
+  const { data } = result;
+
+  const multipleMeasurementsCallback = useCallback((getMultipleMeasurements) => {
     dispatch(actions.multipleMeasurementRecieved(getMultipleMeasurements));
-  }, [data]);
+  }, [dispatch]);
 
   useEffect(() => {
-    setFetch(true);
-  }, [JSON.stringify(metrics)]);
-  useEffect(() => {
-    setFetch(false);
-    multipleMeasurementsCallback();
-  }, [fetching, data, error]);
+    executeQuery();
+    // eslint-disable-next-line
+  }, [metrics.length]);
 
+  useEffect(() => {
+    if (data && data.getMultipleMeasurements && data.getMultipleMeasurements.length === metrics.length) {
+      multipleMeasurementsCallback(data.getMultipleMeasurements);
+    }
+  }, [data, metrics.length, multipleMeasurementsCallback]);
 
   const chartData: IChartData[] = getChartData(measurements, metrics.map(m => m.title));
 
@@ -102,19 +103,30 @@ const Charting = () => {
                 tickFormatter={tick => tickFormatter(+tick)}
                 domain={[firstTick, lastTick]}
               />
-              {metrics.map((m, i) => <YAxis unit={units[m.title]} yAxisId={`left${i + 1}`} orientation="left" />)}
+              {
+                metrics.map((m, i) => (
+                  <YAxis
+                    key={m.title}
+                    unit={units[m.title]}
+                    yAxisId={`left${i + 1}`}
+                    orientation="left"
+                  />
+                ))
+              }
               <Tooltip labelFormatter={(label) => <span>{new Date(+label).toString()}</span>} />
               <Legend />
               {
-                metrics.map((m, i) => {
-                  return <Line
+                metrics.map((m, i) => (
+                  <Line
+                    key={m.title}
                     unit={units[m.title]}
                     yAxisId={`left${i + 1}`}
                     dataKey={m.title}
                     stroke={colors[i]}
                     activeDot={{ r: 8 }}
+                    dot={false}
                   />
-                })
+                ))
               }
             </LineChart>
           </ResponsiveContainer>

@@ -12,12 +12,12 @@ const query = `{
 }`;
 
 const Filters = () => {
-  const [result] = useQuery({ query });
   const dispatch = useDispatch();
+  const [result] = useQuery({ query });
   const classes = useStyles();
   const { metrics } = useSelector(getFilters);
   const { fetching, data, error } = result;
-
+  
   useEffect(() => {
     if (error) {
       dispatch(actions.metricsApiErrorReceived({ error: error.message }));

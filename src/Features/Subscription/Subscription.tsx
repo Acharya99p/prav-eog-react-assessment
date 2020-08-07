@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSubscription } from "urql";
-import { getSelectedMetrics } from "./selectors";
+import { getSelectedMetrics, getAllMetrics } from "./selectors";
 import { actions } from "./reducer";
+import { Measurement } from "../../types";
 
 const query = `subscription {
   newMeasurement{
@@ -13,16 +14,29 @@ const query = `subscription {
   }
 }`;
 
+let dataCache: Measurement[] = [];
+
 const Subscription = () => {
-  const selectedMetrics = useSelector(getSelectedMetrics);
-  const [res] = useSubscription({ query });
-  const measurement = res.data;
   const dispatch = useDispatch();
+  const selectedMetrics = useSelector(getSelectedMetrics);
+  const allMetrics = useSelector(getAllMetrics);
+  const metricsString = JSON.stringify(selectedMetrics);
+  const [{ data }] = useSubscription({ query });
+  const metricsCount =  allMetrics.length;
+  
+  const updateMeasurement = useCallback((measurements: Measurement[]) => {
+    dispatch(actions.measurementRecevied(measurements));
+  }, [dispatch]);
+
   useEffect(() => {
-    if (measurement && measurement.newMeasurement && selectedMetrics.includes(measurement.newMeasurement.metric)) {
-      dispatch(actions.measurementRecevied(measurement.newMeasurement));
+    if (!data || !data.newMeasurement) return;
+    if (dataCache.length < metricsCount) {
+      dataCache.push(data.newMeasurement);
+    } else {
+      updateMeasurement(dataCache);
+      dataCache = [];
     }
-  }, [measurement]);
+  }, [data, metricsString, updateMeasurement , metricsCount]);
 
   return null;
 }

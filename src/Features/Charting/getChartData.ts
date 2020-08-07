@@ -1,5 +1,4 @@
-import { Measurement } from './../../types/measurement';
-import { Metric, Filter } from '../../types';
+import { Metric } from '../../types';
 import { IMeasurementState } from '../Subscription/reducer';
 
 export interface IChartData {
@@ -13,7 +12,7 @@ export const getChartData = (measurements: IMeasurementState, metrics: Metric[])
   Object.keys(measurements)
     .forEach((metric: Metric) => {
       const json = measurements[metric].toJSON();
-      json.points.map((point: number[]) => {
+      json.points.forEach((point: number[]) => {
         if (metrics.includes(metric)) {
           const [time, value] = point;
           if (!dataMap[time]) {

@@ -13,7 +13,6 @@ export const getLatestMeasurements = (state: IState): ILatestMeasurements => {
   metrics.forEach(m => {
     const measurement = measurements[m.title];
     if (measurement && measurement.size()) {
-      // console.log('getLatestMeasurements', measurement, result[m.title]);
       result[m.title] = measurement.atLast().get("value");
     } else {
       result[m.title] = '';

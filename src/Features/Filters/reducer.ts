@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from 'redux-starter-kit';
-import { Metric, ApiErrorAction, Filter } from '../../types';
+import { ApiErrorAction, Filter } from '../../types';
 
 interface IFiltersState {
   metrics: Filter[]
